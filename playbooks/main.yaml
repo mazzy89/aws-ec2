@@ -90,7 +90,8 @@
 
 - name: Configure the instances
   hosts: dbservers
-  gather_facts: True
   sudo: True
+  tags:
+    - configuration
   roles:
     - docker
