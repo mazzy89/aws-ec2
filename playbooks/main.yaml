@@ -57,7 +57,7 @@
         instance: "{{ item.id }}"
         volume_size: 10
         volume_type: gp2
-        device_name: /dev/xvdb
+        device_name: /dev/sdb
         region: "{{ region }}"
       with_items: ec2.tagged_instances
     - name: Create JOURNAL volume
@@ -65,7 +65,7 @@
         instance: "{{ item.id }}"
         volume_size: 5
         volume_type: gp2
-        device_name: /dev/xvdc
+        device_name: /dev/sdc
         region: "{{ region }}"
       with_items: ec2.tagged_instances
     - name: Create LOG volume
@@ -73,7 +73,7 @@
         instance: "{{ item.id }}"
         volume_size: 5
         volume_type: gp2
-        device_name: /dev/xvdd
+        device_name: /dev/sdd
         region: "{{ region }}"
       with_items: ec2.tagged_instances
     - name: associate a new EIP with each of the instances
