@@ -1,1 +1,1 @@
-# Motorsquare AWS Architecture
+# AWS Architecture
