@@ -1,0 +1,98 @@
+---
+- name: Create a single instance to host MongoDB Docker container
+  hosts: localhost
+  gather_facts: False
+  vars:
+    - instance_type: t2.micro
+    - region: eu-west-1
+    - count: 1
+  tasks:
+    - name: Get the latest Ubuntu AMI
+      ec2_ami_search: distro=ubuntu release=trusty virt=hvm region={{ region }}
+      register: ubuntu_image
+    - name: SSH security group
+      ec2_group:
+        name: SSH
+        description: allow SSH access to the instance
+        region: "{{ region }}"
+        rules:
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: 0.0.0.0/0
+    - name: Database security group
+      ec2_group:
+        name: Database
+        description: allow database access from the outside
+        region: "{{ region }}"
+        rules:
+          - proto: tcp
+            from_port: 27017
+            to_port: 27017
+            cidr_ip: 0.0.0.0/0
+    - name: Outbound security group
+      ec2_group:
+        name: Outbound
+        description: allow outbound connections to the Internet
+        region: "{{ region }}"
+        rules_egress:
+          - proto: all
+            cidr_ip: 0.0.0.0/0
+    - name: Start the instance
+      ec2:
+        instance_type: "{{ instance_type }}"
+        region: "{{ region }}"
+        image: "{{ ubuntu_image.ami }}"
+        key_name: eu_west_motorsquare
+        group: [SSH, Database, Outbound]
+        instance_tags: { Name: mongo-01, type: db }
+        exact_count: "{{ count }}"
+        count_tag: { type: db }
+        wait: yes
+      register: ec2
+    - name: Display created instances
+      debug: var=ec2.tagged_instances
+    - name: Create DATA volume
+      ec2_vol:
+        instance: "{{ item.id }}"
+        name: DATA
+        volume_size: 10
+        volume_type: gp2
+        device_name: /dev/xvdb
+        region: "{{ region }}"
+        with_items: ec2.tagged_instances
+    - name: Create JOURNAL volume
+      ec2_vol:
+        instance: "{{ item.id }}"
+        name: JOURNAL
+        volume_size: 5
+        volume_type: gp2
+        device_name: /dev/xvdc
+        region: "{{ region }}"
+        with_items: ec2.tagged_instances
+    - name: Create LOG volume
+      ec2_vol:
+        instance: "{{ item.id }}"
+        name: LOG
+        volume_size: 5
+        volume_type: gp2
+        device_name: /dev/xvdd
+        region: "{{ region }}"
+        with_items: ec2.tagged_instances
+    - name: associate a new EIP with each of the instances
+      ec2_eip: instance_id="{{ item.id }}"
+      with_items: ec2.tagged_instances
+    - name: add the instance to database group
+      add_host: hostname={{ item.public_dns_name }} groups=database
+      with_items: ec2.tagged_instances
+      when: item.public_dns_name is defined
+    - name: wait for ssh server to be running
+      wait_for: host={{ item.public_dns_name }} port=22 search_regex=OpenSSH
+      with_items: ec2.tagged_instances
+      when: item.public_dns_name is defined
+
+- name: Configure the instances
+  hosts: database
+  sudo: True
+  roles:
+    - docker

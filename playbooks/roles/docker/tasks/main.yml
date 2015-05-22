@@ -1,0 +1,7 @@
+---
+- name: Install wget package
+  apt: name=wget update_cache=yes
+- name: Install Docker
+  shell: wget -qO- https://get.docker.com/ | sh
+- name: Create the docker group and add the user
+  user: name=ubuntu group=docker
